@@ -56,5 +56,5 @@ outputs:
     description: 'The ID for the task that was ran.'
 
 runs:
-  using: 'node12'
+  using: 'node16'
   main: 'dist/index.js'

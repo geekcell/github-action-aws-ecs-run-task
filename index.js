@@ -57,12 +57,12 @@ const main = async () => {
         // Get taskArn and taskId
         const taskArn = task.tasks[0].taskArn;
         const taskId = taskArn.split('/').pop();
-        core.setOutput('task-arn', taskArn);
-        core.setOutput('task-id', taskId);
+        core.exportVariable('task-arn', taskArn);
+        core.exportVariable('task-id', taskId);
         core.info(`Task started with ARN: ${taskArn}`);
 
         // Wait for task to be in running state
-        core.debug(`Waiting for task to be in running state.`)
+        core.info(`Waiting for task to be in running state...`)
         await ecs.waitFor('tasksRunning', {cluster, tasks: [taskArn]}).promise();
 
         // Get logging configuration
