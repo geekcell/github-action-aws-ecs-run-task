@@ -1,0 +1,60 @@
+name: 'Run AWS ECS Fargate Task'
+description: >-
+  This action makes it possible to run an AWS ECS Fargate task. 
+
+branding:
+  icon: 'activity'
+  color: 'white'
+
+inputs:
+  task-definition:
+    description: >-
+      The name or the ARN of the task definition to use for the task.
+    required: true
+  subnet-ids:
+    description: >-
+      The list of subnet IDs for the task to use. If multiple they should be passed as multiline argument
+      with one subnet ID per line.
+    required: true
+  security-group-ids:
+    description: >-
+      List of security group IDs for the task. If multiple they should be passed as multiline argument
+      with one subnet ID per line.
+    required: true
+  assign-public-ip:
+    description: >-
+      Assign public a IP to the task.
+      Options: ['ENABLED', 'DISABLED']
+    required: false
+    default: DISABLED
+  cluster:
+    description: >-
+      Which ECS cluster to start the task in.
+    required: false
+    default: default
+  override-container:
+    description: >-
+      Will use `containerOverrides` to run a custom command on the container. If provided, `override-container-command`
+      must also be set.
+    required: false
+  override-container-command:
+    description: >-
+      The command to run on the container if `override-container` is passed.
+    required: false
+  tail-logs:
+    description: >-
+      If set to true, will try to extract the logConfiguration for the first container in the task definition. If 
+      `override-container` is passed, it will extract the logConfiguration from that container. Tailing logs is only
+      possible if the provided container uses the `awslogs` logDriver.
+    required: false
+    default: 'true'
+
+outputs:
+  task-arn:
+    description: 'The full ARN for the task that was ran.'
+  task-id:
+    description: 'The ID for the task that was ran.'
+
+runs:
+  using: 'node12'
+  main: 'dist/index.js'
