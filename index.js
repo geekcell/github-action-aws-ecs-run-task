@@ -59,10 +59,10 @@ const main = async () => {
         const taskId = taskArn.split('/').pop();
         core.exportVariable('task-arn', taskArn);
         core.exportVariable('task-id', taskId);
-        core.info(`Task started with ARN: ${taskArn}`);
+        core.info(`Starting Task with ARN: ${taskArn}\n`);
 
         // Wait for task to be in running state
-        core.info(`Waiting for task to be in running state...`)
+        core.debug(`Waiting for task to be in running state.`)
         await ecs.waitFor('tasksRunning', {cluster, tasks: [taskArn]}).promise();
 
         // Get logging configuration
@@ -104,7 +104,7 @@ const main = async () => {
                         });
 
                         logFilterStream.on('data', function (eventObject) {
-                            core.info(eventObject.message);
+                            core.info(`${new Date(eventObject.timestamp).toISOString()}: ${eventObject.message}`);
                         });
 
                         return true;
