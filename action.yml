@@ -1,6 +1,6 @@
 name: 'Run AWS ECS Fargate Task'
 description: >-
-  This action makes it possible to run an AWS ECS Fargate task. 
+  Run an AWS ECS Fargate task and execute a custom commands. See the log output of the commands.
 
 branding:
   icon: 'activity'
@@ -24,14 +24,13 @@ inputs:
   assign-public-ip:
     description: >-
       Assign public a IP to the task.
-      Options: ['ENABLED', 'DISABLED']
+      Options: `['ENABLED', 'DISABLED']`
     required: false
     default: DISABLED
   cluster:
     description: >-
       Which ECS cluster to start the task in.
     required: false
-    default: default
   override-container:
     description: >-
       Will use `containerOverrides` to run a custom command on the container. If provided, `override-container-command`
@@ -43,7 +42,7 @@ inputs:
     required: false
   tail-logs:
     description: >-
-      If set to true, will try to extract the logConfiguration for the first container in the task definition. If 
+      If set to true, will try to extract the logConfiguration for the first container in the task definition. If
       `override-container` is passed, it will extract the logConfiguration from that container. Tailing logs is only
       possible if the provided container uses the `awslogs` logDriver.
     required: false
@@ -51,9 +50,9 @@ inputs:
 
 outputs:
   task-arn:
-    description: 'The full ARN for the task that was ran.'
+    description: 'The full ARN for the task that was ran. Will be added as ENV variable.'
   task-id:
-    description: 'The ID for the task that was ran.'
+    description: 'The ID for the task that was ran. Will be added as ENV variable.'
 
 runs:
   using: 'node16'
