@@ -67,6 +67,8 @@ const main = async () => {
 
         // Get logging configuration
         let logFilterStream = null;
+        let logOutput = null;
+
         if (tailLogs) {
             core.debug(`Logging enabled. Getting logConfiguration from TaskDefinition.`)
             let taskDef = await ecs.describeTaskDefinition({taskDefinition: taskDefinition}).promise();
@@ -104,7 +106,9 @@ const main = async () => {
                         });
 
                         logFilterStream.on('data', function (eventObject) {
-                            core.info(`${new Date(eventObject.timestamp).toISOString()}: ${eventObject.message}`);
+                            const logLine = `${new Date(eventObject.timestamp).toISOString()}: ${eventObject.message}`
+                            core.info(logLine);
+                            logOutput += logLine + '\n';
                         });
 
                         return true;
@@ -112,6 +116,9 @@ const main = async () => {
                 });
             }
         }
+
+        // Set output variable, so it can be used by other actions
+        core.setOutput('log-output', logOutput);
 
         // Wait for Task to finish
         core.debug(`Waiting for task to finish.`);
