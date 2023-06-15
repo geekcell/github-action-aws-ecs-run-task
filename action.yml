@@ -53,6 +53,8 @@ outputs:
     description: 'The full ARN for the task that was ran. Will be added as ENV variable.'
   task-id:
     description: 'The ID for the task that was ran. Will be added as ENV variable.'
+  log-output:
+    description: 'The log output of the task that was ran, if `tail-logs` was set to true.'
 
 runs:
   using: 'node16'
