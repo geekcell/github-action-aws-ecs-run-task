@@ -67,7 +67,7 @@ const main = async () => {
 
         // Get logging configuration
         let logFilterStream = null;
-        let logOutput = null;
+        let logOutput = '';
 
         if (tailLogs) {
             core.debug(`Logging enabled. Getting logConfiguration from TaskDefinition.`)
