@@ -50,9 +50,9 @@ inputs:
 
 outputs:
   task-arn:
-    description: 'The full ARN for the task that was ran. Will be added as ENV variable.'
+    description: 'The full ARN for the task that was ran.'
   task-id:
-    description: 'The ID for the task that was ran. Will be added as ENV variable.'
+    description: 'The ID for the task that was ran.'
   log-output:
     description: 'The log output of the task that was ran, if `tail-logs` was set to true.'
 

@@ -75,8 +75,8 @@ This action is great for executing migrations or other pre/post deployment steps
 
 | parameter | description |
 | --- | --- |
-| task-arn | The full ARN for the task that was ran. Will be added as ENV variable. |
-| task-id | The ID for the task that was ran. Will be added as ENV variable. |
+| task-arn | The full ARN for the task that was ran. |
+| task-id | The ID for the task that was ran. |
 | log-output | The log output of the task that was ran, if `tail-logs` was set to true. |
 <!-- action-docs-outputs -->
 

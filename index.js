@@ -57,8 +57,8 @@ const main = async () => {
         // Get taskArn and taskId
         const taskArn = task.tasks[0].taskArn;
         const taskId = taskArn.split('/').pop();
-        core.exportVariable('task-arn', taskArn);
-        core.exportVariable('task-id', taskId);
+        core.setOutput('task-arn', taskArn);
+        core.setOutput('task-id', taskId);
         core.info(`Starting Task with ARN: ${taskArn}\n`);
 
         // Wait for task to be in running state
@@ -127,7 +127,7 @@ const main = async () => {
             logFilterStream.close();
 
             // Export log-output
-            core.exportVariable('log-output', logOutput);
+            core.setOutput('log-output', logOutput);
         }
 
         // Describe Task to get Exit Code and Exceptions
