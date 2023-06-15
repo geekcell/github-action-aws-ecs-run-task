@@ -117,17 +117,17 @@ const main = async () => {
             }
         }
 
-        // Set output variable, so it can be used by other actions
-        core.setOutput('log-output', logOutput);
-
         // Wait for Task to finish
         core.debug(`Waiting for task to finish.`);
         await ecs.waitFor('tasksStopped', {cluster, tasks: [taskArn]}).promise();
 
-        // Close LogStream
+        // Close LogStream and store output
         if (logFilterStream !== null) {
             core.debug(`Closing logStream.`);
             logFilterStream.close();
+
+            // Export log-output
+            core.exportVariable('log-output', logOutput);
         }
 
         // Describe Task to get Exit Code and Exceptions
