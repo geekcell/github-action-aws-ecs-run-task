@@ -38,9 +38,10 @@ This action is great for executing migrations or other pre/post deployment steps
     override-container-command: |
       /bin/sh
       -c
-      php artisan migrate --force --ansi && \
-      php artisan db:seed --force --ansi && \
-      php artisan config:clear --ansi
+      php artisan migrate --force --ansi && php artisan db:seed --force --ansi
+    override-container-environment: |
+      AWS_REGION=us-east-1
+      FOO=baz
 ```
 
 #### Minimal example

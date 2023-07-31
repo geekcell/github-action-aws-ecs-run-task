@@ -40,6 +40,10 @@ inputs:
     description: >-
       The command to run on the container if `override-container` is passed.
     required: false
+  override-container-environment:
+    description: >-
+      Add or override existing environment variables if `override-container` is passed. Provide one per line in key=value format.
+    required: false
   tail-logs:
     description: >-
       If set to true, will try to extract the logConfiguration for the first container in the task definition. If
