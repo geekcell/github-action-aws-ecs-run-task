@@ -56,11 +56,6 @@ jobs:
           name: Release ${{ steps.tag.outputs.value }}
           body: ${{ steps.bumpr.outputs.message }}
           tag_name: ${{ steps.tag.outputs.value }}
-          files: |
-            dist
-            action.yml
-            LICENSE
-            README.md
 
   release-check:
     if: github.event.action == 'labeled'
