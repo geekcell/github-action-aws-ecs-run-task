@@ -20,6 +20,8 @@ const main = async () => {
         const assignPublicIp = core.getInput('assign-public-ip', {required: false});
         const overrideContainer = core.getInput('override-container', {required: false});
         const overrideContainerCommand = core.getMultilineInput('override-container-command', {required: false});
+        const overrideContainerEnvironment = core.getMultilineInput('override-container-environment', {required: false});
+        
 
         // Build Task parameters
         const taskRequestParams = {
@@ -36,17 +38,31 @@ const main = async () => {
             },
         };
 
-        // Override command if defined
-        if (overrideContainerCommand && overrideContainer) {
-            core.debug(`overrideContainer and overrideContainerCommand has been specified. Overriding.`);
-            taskRequestParams.overrides = {
-                containerOverrides: [
-                    {
-                        name: overrideContainer,
-                        command: overrideContainerCommand,
+        // Overrides if defined
+        if (overrideContainer) {
+            let overrides = {
+                name: overrideContainer,
+            }
+
+            if (overrideContainerCommand.length) {
+                core.debug(`overrideContainer and overrideContainerCommand has been specified. Overriding.`);
+                overrides.command = overrideContainerCommand
+            }
+
+            if(overrideContainerEnvironment.length) {
+                core.debug(`overrideContainer and overrideContainerEnvironment has been specified. Overriding.`);
+                overrides.environment = overrideContainerEnvironment.map(x => {
+                    const parts=x.split(/=(.*)/)
+                    return {
+                        name: parts[0],
+                        value: parts[1]
                     }
-                ]
-            };
+                })
+            }
+
+            taskRequestParams.overrides = {
+                containerOverrides: [overrides],
+            }
         }
 
         // Start task
