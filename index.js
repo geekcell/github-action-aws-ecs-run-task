@@ -21,7 +21,6 @@ const main = async () => {
         const overrideContainer = core.getInput('override-container', {required: false});
         const overrideContainerCommand = core.getMultilineInput('override-container-command', {required: false});
         const overrideContainerEnvironment = core.getMultilineInput('override-container-environment', {required: false});
-        
 
         // Build Task parameters
         const taskRequestParams = {
@@ -46,13 +45,35 @@ const main = async () => {
 
             if (overrideContainerCommand.length) {
                 core.debug(`overrideContainer and overrideContainerCommand has been specified. Overriding.`);
-                overrides.command = overrideContainerCommand
+
+                // Iterate over each item in the array and check for line appender character
+                core.debug(`Parsing overrideContainerCommand and merging line appender strings.`);
+                overrideContainerCommand.map((x, i, arr) => {
+                    if (x.endsWith('\\')) {
+                        // Remove line appender character
+                        arr[i] = x.replace(/\\$/, '')
+
+                        // Check if not the last item in array
+                        if (arr.length - 1 !== i) {
+                            // Prepend the current item to the next item and set current item to null
+                            arr[i+1] = arr[i] + arr[i+1]
+                            arr[i] = null
+                        }
+                    }
+                    console.log(JSON.stringify(arr))
+                })
+
+                // Filter out any null values
+                const parsedCommand = overrideContainerCommand.filter(x => x)
+                core.debug(`Resulting command: ${JSON.stringify(parsedCommand)}`)
+
+                overrides.command = parsedCommand
             }
 
             if(overrideContainerEnvironment.length) {
                 core.debug(`overrideContainer and overrideContainerEnvironment has been specified. Overriding.`);
                 overrides.environment = overrideContainerEnvironment.map(x => {
-                    const parts=x.split(/=(.*)/)
+                    const parts= x.split(/=(.*)/)
                     return {
                         name: parts[0],
                         value: parts[1]
@@ -100,7 +121,7 @@ const main = async () => {
                         return false;
                     }
 
-                    // Create a WLogFilterStream if logOptions are found
+                    // Create a CWLogFilterStream if logOptions are found
                     if (container.logConfiguration && container.logConfiguration.logDriver === 'awslogs') {
                         const logStreamName = [container.logConfiguration.options['awslogs-stream-prefix'], container.name, taskId].join('/')
                         core.debug(`Found matching container with 'awslogs' logDriver. Creating LogStream for '${logStreamName}'`);

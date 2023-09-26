@@ -1,0 +1,20 @@
+name: Sync labels
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron:  "0 0 1 * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  sync-labels:
+    name: Sync labels
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync labels
+        uses: EndBug/label-sync@v2.3.1
+        with:
+          config-file: https://gist.githubusercontent.com/Ic3w0lf/f5520c5f19d7098966f692c120f7a197/raw/75b134f76fbc55e2e64bd66f04e571d6d74b815e/terraform-aws-module-labels.yaml
