@@ -56,6 +56,33 @@ This action is great for executing migrations or other pre/post deployment steps
     security-group-ids: sg-123456789101112
 ```
 
+#### Appending multiple lines into a single command
+
+You can use the backslash character `\` to append multiple lines into a single line. This is useful if you have many
+commands to execute and want to keep the YAML file readable. Otherwise, each line will be passed to the AWS ECS Fargate
+task as a separate argument.
+
+> **Note:** Make sure to use the `|` character to make sure the YAML parser interprets the value as a multiline string.
+> You can read more about this in the [YAML documentation](https://yaml.org/spec/1.2/spec.html#id2794534).
+
+For example:
+
+``` yaml
+...
+override-container-command: |
+  /bin/sh
+  -c
+  php artisan down && \
+  php artisan migrate --force --ansi && \
+  php artisan db:seed --force --ansi && \
+  php artisan cache:clear --ansi
+```
+
+Will pass the following command to the container on the AWS ECS Fargate task:
+```
+["sh", "-c", "php artisan down && php artisan migrate --force --ansi && php artisan db:seed --force --ansi && php artisan cache:clear --ansi"]
+```
+
 <!-- action-docs-inputs -->
 ## Inputs
 
