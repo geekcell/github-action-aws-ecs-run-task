@@ -61,5 +61,5 @@ outputs:
     description: 'The log output of the task that was ran, if `tail-logs` was set to true.'
 
 runs:
-  using: 'node16'
+  using: 'node20'
   main: 'dist/index.js'
