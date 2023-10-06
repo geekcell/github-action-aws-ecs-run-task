@@ -60,7 +60,6 @@ const main = async () => {
                             arr[i] = null
                         }
                     }
-                    console.log(JSON.stringify(arr))
                 })
 
                 // Filter out any null values
