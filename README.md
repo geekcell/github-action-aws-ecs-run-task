@@ -3,12 +3,12 @@
 <!-- action-docs-description -->
 ## Description
 
-Run an AWS ECS Fargate task and execute a custom commands. See the log output of the commands.
+Run an AWS ECS Fargate task and execute a custom command. See the log output of the command that is executed.
 <!-- action-docs-description -->
 
 ### Details
-This action makes it possible to run an AWS ECS Fargate task and execute a custom command. If the task definition
-defines logs to CloudWatch this action will also tail the output of container, providing instant feedback inside
+This action makes it possible to run an AWS ECS Fargate task and execute custom commands. If the task definition
+is configured to log to CloudWatch, this action will try to tail the output of container, providing instant feedback inside
 the GitHub Workflow.
 
 This action is great for executing migrations or other pre/post deployment steps for ECS Fargate applications.
@@ -19,7 +19,7 @@ This action is great for executing migrations or other pre/post deployment steps
 ``` yaml
 - name: Execute migrations and seeders
   id: run-task
-  uses: geekcell/github-action-aws-ecs-run-task@v1.0.0
+  uses: geekcell/github-action-aws-ecs-run-task@v3.0.0
   with:
     cluster: application-cluster
     task-definition: application-task-def
@@ -48,7 +48,7 @@ This action is great for executing migrations or other pre/post deployment steps
 ``` yaml
 - name: Run migration container
   id: run-task
-  uses: geekcell/github-action-aws-ecs-run-task@v1.0.0
+  uses: geekcell/github-action-aws-ecs-run-task@v3.0.0
   with:
     cluster: application-cluster
     task-definition: application-task-def
@@ -62,7 +62,7 @@ You can use the backslash character `\` to append multiple lines into a single l
 commands to execute and want to keep the YAML file readable. Otherwise, each line will be passed to the AWS ECS Fargate
 task as a separate argument.
 
-> **Note:** Make sure to use the `|` character to make sure the YAML parser interprets the value as a multiline string.
+> **Note:** Make sure to use the `|` character so the YAML parser interprets the value as a multiline string.
 > You can read more about this in the [YAML documentation](https://yaml.org/spec/1.2/spec.html#id2794534).
 
 For example:
@@ -111,5 +111,5 @@ Will pass the following command to the container on the AWS ECS Fargate task:
 <!-- action-docs-runs -->
 ## Runs
 
-This action is a `node16` action.
+This action is a `node20` action.
 <!-- action-docs-runs -->
