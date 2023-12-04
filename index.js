@@ -21,6 +21,7 @@ const main = async () => {
         const overrideContainer = core.getInput('override-container', {required: false});
         const overrideContainerCommand = core.getMultilineInput('override-container-command', {required: false});
         const overrideContainerEnvironment = core.getMultilineInput('override-container-environment', {required: false});
+        const taskStoppedWaitForMaxAttempts = parseInt(core.getInput('task-stopped-wait-for-max-attempts', {required: false}));
 
         // Build Task parameters
         const taskRequestParams = {
@@ -56,7 +57,7 @@ const main = async () => {
                         // Check if not the last item in array
                         if (arr.length - 1 !== i) {
                             // Prepend the current item to the next item and set current item to null
-                            arr[i+1] = arr[i] + arr[i+1]
+                            arr[i + 1] = arr[i] + arr[i + 1]
                             arr[i] = null
                         }
                     }
@@ -69,10 +70,10 @@ const main = async () => {
                 overrides.command = parsedCommand
             }
 
-            if(overrideContainerEnvironment.length) {
+            if (overrideContainerEnvironment.length) {
                 core.debug(`overrideContainer and overrideContainerEnvironment has been specified. Overriding.`);
                 overrides.environment = overrideContainerEnvironment.map(x => {
-                    const parts= x.split(/=(.*)/)
+                    const parts = x.split(/=(.*)/)
                     return {
                         name: parts[0],
                         value: parts[1]
@@ -155,7 +156,11 @@ const main = async () => {
 
         // Wait for Task to finish
         core.debug(`Waiting for task to finish.`);
-        await ecs.waitFor('tasksStopped', {cluster, tasks: [taskArn]}).promise();
+        await ecs.waitFor('tasksStopped', {
+            cluster,
+            tasks: [taskArn],
+            $waiter: {delay: 6, maxAttempts: taskStoppedWaitForMaxAttempts}}
+        ).promise();
 
         // Close LogStream and store output
         if (logFilterStream !== null) {
