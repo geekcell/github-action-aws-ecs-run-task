@@ -98,6 +98,7 @@ Will pass the following command to the container on the AWS ECS Fargate task:
 | override-container-environment | Add or override existing environment variables if `override-container` is passed. Provide one per line in key=value format. | `false` |  |
 | tail-logs | If set to true, will try to extract the logConfiguration for the first container in the task definition. If `override-container` is passed, it will extract the logConfiguration from that container. Tailing logs is only possible if the provided container uses the `awslogs` logDriver. | `false` | true |
 | task-stopped-wait-for-max-attempts | How many times to check if the task is stopped before failing the action. The delay between each check is 6 seconds. | `false` | 100 |
+| end-pipeline-step-before-task-finish | Terminate the pipeline step if the Fargate task has not finished executing. | `false` | `false` |
 <!-- action-docs-inputs -->
 
 <!-- action-docs-outputs -->

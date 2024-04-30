@@ -22,6 +22,7 @@ const main = async () => {
         const overrideContainerCommand = core.getMultilineInput('override-container-command', {required: false});
         const overrideContainerEnvironment = core.getMultilineInput('override-container-environment', {required: false});
         const taskStoppedWaitForMaxAttempts = parseInt(core.getInput('task-stopped-wait-for-max-attempts', {required: false}));
+        const endPipelineStepBeforeTaskEnd = core.getBooleanInput('end-pipeline-step-before-task-finish', {required: false});
 
         // Build Task parameters
         const taskRequestParams = {
@@ -154,32 +155,39 @@ const main = async () => {
             }
         }
 
-        // Wait for Task to finish
-        core.debug(`Waiting for task to finish.`);
-        await ecs.waitFor('tasksStopped', {
-            cluster,
-            tasks: [taskArn],
-            $waiter: {delay: 6, maxAttempts: taskStoppedWaitForMaxAttempts}}
-        ).promise();
+        if (endPipelineStepBeforeTaskEnd === false){
 
-        // Close LogStream and store output
-        if (logFilterStream !== null) {
-            core.debug(`Closing logStream.`);
-            logFilterStream.close();
+            // Wait for Task to finish
+            core.debug(`Waiting for task to finish.`);
+            await ecs.waitFor('tasksStopped', {
+                cluster,
+                tasks: [taskArn],
+                $waiter: {delay: 6, maxAttempts: taskStoppedWaitForMaxAttempts}}
+            ).promise();
 
-            // Export log-output
-            core.setOutput('log-output', logOutput);
+            // Close LogStream and store output
+            if (logFilterStream !== null) {
+                core.debug(`Closing logStream.`);
+                logFilterStream.close();
+
+                // Export log-output
+                core.setOutput('log-output', logOutput);
+            }
+
+            // Describe Task to get Exit Code and Exceptions
+            core.debug(`Process exit code and exception.`);
+            task = await ecs.describeTasks({cluster, tasks: [taskArn]}).promise();
+
+            // Get exitCode
+            if (task.tasks[0].containers[0].exitCode !== 0) {
+                core.info(`Task failed, see details on Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=${aws.config.region}#/clusters/${cluster}/tasks/${taskId}/details`);
+                core.setFailed(task.tasks[0].stoppedReason)
+            }
+        }
+        else{
+            core.info("ECS Task running...")
         }
 
-        // Describe Task to get Exit Code and Exceptions
-        core.debug(`Process exit code and exception.`);
-        task = await ecs.describeTasks({cluster, tasks: [taskArn]}).promise();
-
-        // Get exitCode
-        if (task.tasks[0].containers[0].exitCode !== 0) {
-            core.info(`Task failed, see details on Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=${aws.config.region}#/clusters/${cluster}/tasks/${taskId}/details`);
-            core.setFailed(task.tasks[0].stoppedReason)
-        }
     } catch (error) {
         core.setFailed(error.message);
         core.debug(error.stack);
