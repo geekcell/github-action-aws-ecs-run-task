@@ -24,7 +24,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@actions/core": "^1.9.1",
-    "aws-sdk": "^2.1244.0",
+    "@aws-sdk/client-ecs": "^3.600.0",
     "smoketail": "^0.2.2",
     "yaml": "^2.2.2"
   },
