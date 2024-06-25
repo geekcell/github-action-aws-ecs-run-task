@@ -66,6 +66,12 @@ inputs:
     required: false
     default: 100
 
+  end-pipeline-step-before-task-finish:
+    description: >-
+      Terminate the pipeline step if the Fargate task has not finished executing.
+    required: false
+    default: 'false'
+
 outputs:
   task-arn:
     description: 'The full ARN for the task that was ran.'
