@@ -60,11 +60,26 @@ inputs:
     required: false
     default: 'true'
 
-  task-stopped-wait-for-max-attempts:
+  task-wait-until-stopped:
     description: >-
-      How many times to check if the task is stopped before failing the action. The delay between each check is 6 seconds.
+      Whether to wait for the task to stop before finishing the action. If set to false, the action will finish
+      immediately after the task reaches the `RUNNING` state (fire and forget).
     required: false
-    default: 100
+    default: 'true'
+
+  task-start-max-wait-time:
+    description: >-
+      How long to wait for the task to start (i.e. reach the `RUNNING` state) in seconds. If the task does not start
+      within this time, the pipeline will fail.
+    required: false
+    default: 120
+
+  task-stopped-max-wait-time:
+    description: >-
+      How long to wait for the task to stop (i.e. reach the `STOPPED` state) in seconds. The task will not be canceled
+      after this time, the pipeline will just be marked as failed.
+    required: false
+    default: 300
 
 outputs:
   task-arn:
@@ -72,7 +87,7 @@ outputs:
   task-id:
     description: 'The ID for the task that was ran.'
   log-output:
-    description: 'The log output of the task that was ran, if `tail-logs` was set to true.'
+    description: 'The log output of the task that was ran, if `tail-logs` and `task-wait-until-stopped` are set to true.'
 
 runs:
   using: 'node20'
