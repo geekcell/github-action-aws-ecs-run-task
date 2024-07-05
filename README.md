@@ -3,7 +3,7 @@
 <!-- action-docs-description -->
 ## Description
 
-Run an AWS ECS Fargate task and execute a custom command. See the log output of the command that is executed.
+Run an AWS ECS Fargate task and execute a custom commands. See the log output of the commands.
 <!-- action-docs-description -->
 
 ### Details
@@ -42,6 +42,10 @@ This action is great for executing migrations or other pre/post deployment steps
     override-container-environment: |
       AWS_REGION=us-east-1
       FOO=baz
+
+    task-wait-until-stopped: true
+    task-start-max-wait-time: 120
+    task-stopped-max-wait-time: 300
 ```
 
 #### Minimal example
@@ -97,7 +101,9 @@ Will pass the following command to the container on the AWS ECS Fargate task:
 | override-container-command | The command to run on the container if `override-container` is passed. | `false` |  |
 | override-container-environment | Add or override existing environment variables if `override-container` is passed. Provide one per line in key=value format. | `false` |  |
 | tail-logs | If set to true, will try to extract the logConfiguration for the first container in the task definition. If `override-container` is passed, it will extract the logConfiguration from that container. Tailing logs is only possible if the provided container uses the `awslogs` logDriver. | `false` | true |
-| task-stopped-wait-for-max-attempts | How many times to check if the task is stopped before failing the action. The delay between each check is 6 seconds. | `false` | 100 |
+| task-wait-until-stopped | Whether to wait for the task to stop before finishing the action. If set to false, the action will finish immediately after the task reaches the `RUNNING` state (fire and forget). | `false` | true |
+| task-start-max-wait-time | How long to wait for the task to start (i.e. reach the `RUNNING` state) in seconds. If the task does not start within this time, the pipeline will fail. | `false` | 120 |
+| task-stopped-max-wait-time | How long to wait for the task to stop (i.e. reach the `STOPPED` state) in seconds. The task will not be canceled after this time, the pipeline will just be marked as failed. | `false` | 300 |
 <!-- action-docs-inputs -->
 
 <!-- action-docs-outputs -->
@@ -107,7 +113,7 @@ Will pass the following command to the container on the AWS ECS Fargate task:
 | --- | --- |
 | task-arn | The full ARN for the task that was ran. |
 | task-id | The ID for the task that was ran. |
-| log-output | The log output of the task that was ran, if `tail-logs` was set to true. |
+| log-output | The log output of the task that was ran, if `tail-logs` and `task-wait-until-stopped` are set to true. |
 <!-- action-docs-outputs -->
 
 <!-- action-docs-runs -->

@@ -1,12 +1,15 @@
 const core = require('@actions/core');
 const aws = require('aws-sdk');
+
+const {ECS, waitUntilTasksRunning, waitUntilTasksStopped} = require('@aws-sdk/client-ecs');
+
 const smoketail = require('smoketail')
 
 const main = async () => {
     try {
         // Setup AWS clients
-        const ecs = new aws.ECS({
-            customUserAgent: 'github-action-aws-ecs-run-task'
+        const ecs = new ECS({
+            customUserAgent: 'github-action-aws-ecs-run-task',
         });
 
         // Inputs: Required
@@ -21,7 +24,11 @@ const main = async () => {
         const overrideContainer = core.getInput('override-container', {required: false});
         const overrideContainerCommand = core.getMultilineInput('override-container-command', {required: false});
         const overrideContainerEnvironment = core.getMultilineInput('override-container-environment', {required: false});
-        const taskStoppedWaitForMaxAttempts = parseInt(core.getInput('task-stopped-wait-for-max-attempts', {required: false}));
+
+        // Inputs: Waiters
+        const taskWaitUntilStopped = core.getBooleanInput('task-wait-until-stopped', {required: false});
+        const taskStartMaxWaitTime = parseInt(core.getInput('task-start-max-wait-time', {required: false}));
+        const taskStoppedMaxWaitTime = parseInt(core.getInput('task-stopped-max-wait-time', {required: false}));
 
         // Build Task parameters
         const taskRequestParams = {
@@ -89,7 +96,7 @@ const main = async () => {
         // Start task
         core.debug(JSON.stringify(taskRequestParams))
         core.debug(`Starting task.`)
-        let task = await ecs.runTask(taskRequestParams).promise();
+        let task = await ecs.runTask(taskRequestParams);
 
         // Get taskArn and taskId
         const taskArn = task.tasks[0].taskArn;
@@ -100,15 +107,26 @@ const main = async () => {
 
         // Wait for task to be in running state
         core.debug(`Waiting for task to be in running state.`)
-        await ecs.waitFor('tasksRunning', {cluster, tasks: [taskArn]}).promise();
+        await waitUntilTasksRunning({
+            client: ecs,
+            maxWaitTime: taskStartMaxWaitTime,
+        }, {cluster, tasks: [taskArn]});
+
+        // If taskWaitUntilStopped is false, we can bail out here because we can not tail logs or have any
+        // information on the exitCodes or status of the task
+        if (!taskWaitUntilStopped) {
+            core.info(`Task is running. Exiting without waiting for task to stop.`);
+            return;
+        }
 
         // Get logging configuration
         let logFilterStream = null;
         let logOutput = '';
 
+        // Only create logFilterStream if tailLogs is enabled, and we wait for the task to stop in the pipeline
         if (tailLogs) {
             core.debug(`Logging enabled. Getting logConfiguration from TaskDefinition.`)
-            let taskDef = await ecs.describeTaskDefinition({taskDefinition: taskDefinition}).promise();
+            let taskDef = await ecs.describeTaskDefinition({taskDefinition: taskDefinition});
             taskDef = taskDef.taskDefinition
 
             // Iterate all containers in TaskDef and search for given container with awslogs driver
@@ -156,11 +174,13 @@ const main = async () => {
 
         // Wait for Task to finish
         core.debug(`Waiting for task to finish.`);
-        await ecs.waitFor('tasksStopped', {
+        await waitUntilTasksStopped({
+            client: ecs,
+            maxWaitTime: taskStoppedMaxWaitTime,
+        }, {
             cluster,
             tasks: [taskArn],
-            $waiter: {delay: 6, maxAttempts: taskStoppedWaitForMaxAttempts}}
-        ).promise();
+        });
 
         // Close LogStream and store output
         if (logFilterStream !== null) {
@@ -173,7 +193,7 @@ const main = async () => {
 
         // Describe Task to get Exit Code and Exceptions
         core.debug(`Process exit code and exception.`);
-        task = await ecs.describeTasks({cluster, tasks: [taskArn]}).promise();
+        task = await ecs.describeTasks({cluster, tasks: [taskArn]});
 
         // Get exitCode
         if (task.tasks[0].containers[0].exitCode !== 0) {
