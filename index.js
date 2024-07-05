@@ -1,6 +1,7 @@
 const core = require('@actions/core');
-const aws = require('aws-sdk');
 
+const {loadConfig} = require("@aws-sdk/node-config-provider");
+const {NODE_REGION_CONFIG_FILE_OPTIONS, NODE_REGION_CONFIG_OPTIONS} = require("@aws-sdk/config-resolver");
 const {ECS, waitUntilTasksRunning, waitUntilTasksStopped} = require('@aws-sdk/client-ecs');
 
 const smoketail = require('smoketail')
@@ -197,7 +198,9 @@ const main = async () => {
 
         // Get exitCode
         if (task.tasks[0].containers[0].exitCode !== 0) {
-            core.info(`Task failed, see details on Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=${aws.config.region}#/clusters/${cluster}/tasks/${taskId}/details`);
+            const currentRegion = await loadConfig(NODE_REGION_CONFIG_OPTIONS, NODE_REGION_CONFIG_FILE_OPTIONS)();
+
+            core.info(`Task failed, see details on Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=${currentRegion}#/clusters/${cluster}/tasks/${taskId}/details`);
             core.setFailed(task.tasks[0].stoppedReason)
         }
     } catch (error) {
