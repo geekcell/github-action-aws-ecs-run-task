@@ -30,7 +30,7 @@ permissions:
 ###############
 jobs:
   self-test:
-    name: GHA Test
+    name: Testing
     runs-on: ubuntu-latest
     steps:
       ############################
@@ -74,7 +74,7 @@ jobs:
             -c
             echo "Hello, World!" && \
             echo "$TEST_VAR" && \
-            x=0; while [ $x -le 10 ]; do echo "Sleeping..." && x=$(( $x + 1 )) && sleep 2; done
+            x=0; while [ $x -le 10 ]; do echo "Sleeping... $x" && x=$(( $x + 1 )) && sleep 2; done
           override-container-environment: |
             TEST_VAR=foobar123
 
@@ -82,6 +82,8 @@ jobs:
       # Test Action itself #
       ######################
       - name: Test Failure Exit Code
+        id: expect-fail
+        continue-on-error: true
         uses: ./
         with:
           # Pre created
@@ -96,9 +98,42 @@ jobs:
             subnet-0fef13a6bef01f61a
             subnet-0a676289b4a27a7fa
 
-          tail-logs: false
           override-container: alpine
           override-container-command: |
             /bin/sh
             -c
             exit 1
+
+      ##########################
+      # Check expected failure #
+      ##########################
+      - name: Check previous for Failure
+        if: steps.expect-fail.outcome == 'success'
+        run: |
+          echo "Expected a failure. Outcome: ${{ steps.expect-fail.outcome }}"
+          exit 1
+
+      ######################
+      # Test Action itself #
+      ######################
+      - name: Test Fire and Forget
+        uses: ./
+        with:
+          # Pre created
+          cluster: github-gha
+          task-definition: arn:aws:ecs:${{ vars.AWS_TESTING_REGION }}:${{ vars.AWS_TESTING_ACCOUNT_ID }}:task-definition/github-gha-alpine
+
+          assign-public-ip: 'ENABLED'
+          security-group-ids: |
+            sg-09a0ccb78d5be2a25
+          subnet-ids: |
+            subnet-08bbfd6c53b0c1049
+            subnet-0fef13a6bef01f61a
+            subnet-0a676289b4a27a7fa
+
+          task-wait-until-stopped: false
+          override-container: alpine
+          override-container-command: |
+            /bin/sh
+            -c
+            x=0; while [ $x -le 10 ]; do echo "Sleeping... $x" && x=$(( $x + 1 )) && sleep 10; done
