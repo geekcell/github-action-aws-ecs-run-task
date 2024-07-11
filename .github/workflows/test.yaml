@@ -52,7 +52,7 @@ jobs:
       ######################
       # Test Action itself #
       ######################
-      - name: Test Action
+      - name: Test With Log Tail
         uses: ./
         with:
           # Pre created
@@ -74,10 +74,31 @@ jobs:
             -c
             echo "Hello, World!" && \
             echo "$TEST_VAR" && \
-            echo "Goodbye, World!"
+            x=0; while [ $x -le 10 ]; do echo "Sleeping..." && x=$(( $x + 1 )) && sleep 2; done
           override-container-environment: |
             TEST_VAR=foobar123
 
-          task-wait-until-stopped: true
-          task-start-max-wait-time: 120
-          task-stopped-max-wait-time: 300
+      ######################
+      # Test Action itself #
+      ######################
+      - name: Test Failure Exit Code
+        uses: ./
+        with:
+          # Pre created
+          cluster: github-gha
+          task-definition: arn:aws:ecs:${{ vars.AWS_TESTING_REGION }}:${{ vars.AWS_TESTING_ACCOUNT_ID }}:task-definition/github-gha-alpine
+
+          assign-public-ip: 'ENABLED'
+          security-group-ids: |
+            sg-09a0ccb78d5be2a25
+          subnet-ids: |
+            subnet-08bbfd6c53b0c1049
+            subnet-0fef13a6bef01f61a
+            subnet-0a676289b4a27a7fa
+
+          tail-logs: false
+          override-container: alpine
+          override-container-command: |
+            /bin/sh
+            -c
+            exit 1
