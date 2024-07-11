@@ -1,0 +1,139 @@
+---
+###############
+## Run tests ##
+###############
+
+#
+# Documentation:
+# https://help.github.com/en/articles/workflow-syntax-for-github-actions
+#
+
+name: Test
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+##########################
+# Prevent duplicate jobs #
+##########################
+concurrency:
+  group: ${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+###############
+# Run the job #
+###############
+jobs:
+  self-test:
+    name: Testing
+    runs-on: ubuntu-latest
+    steps:
+      ############################
+      # Checkout the source code #
+      ############################
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      #############################
+      # Configure AWS credentials #
+      #############################
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_TESTING_ACCOUNT_ID }}:role/${{ vars.AWS_TESTING_ROLE }}
+          aws-region: ${{ vars.AWS_TESTING_REGION }}
+          mask-aws-account-id: false
+
+      ######################
+      # Test Action itself #
+      ######################
+      - name: Test With Log Tail
+        uses: ./
+        with:
+          # Pre created
+          cluster: github-gha
+          task-definition: arn:aws:ecs:${{ vars.AWS_TESTING_REGION }}:${{ vars.AWS_TESTING_ACCOUNT_ID }}:task-definition/github-gha-alpine
+
+          assign-public-ip: 'ENABLED'
+          security-group-ids: |
+            sg-09a0ccb78d5be2a25
+          subnet-ids: |
+            subnet-08bbfd6c53b0c1049
+            subnet-0fef13a6bef01f61a
+            subnet-0a676289b4a27a7fa
+
+          tail-logs: true
+          override-container: alpine
+          override-container-command: |
+            /bin/sh
+            -c
+            echo "Hello, World!" && \
+            echo "$TEST_VAR" && \
+            x=0; while [ $x -le 10 ]; do echo "Sleeping... $x" && x=$(( $x + 1 )) && sleep 2; done
+          override-container-environment: |
+            TEST_VAR=foobar123
+
+      ######################
+      # Test Action itself #
+      ######################
+      - name: Test Failure Exit Code
+        id: expect-fail
+        continue-on-error: true
+        uses: ./
+        with:
+          # Pre created
+          cluster: github-gha
+          task-definition: arn:aws:ecs:${{ vars.AWS_TESTING_REGION }}:${{ vars.AWS_TESTING_ACCOUNT_ID }}:task-definition/github-gha-alpine
+
+          assign-public-ip: 'ENABLED'
+          security-group-ids: |
+            sg-09a0ccb78d5be2a25
+          subnet-ids: |
+            subnet-08bbfd6c53b0c1049
+            subnet-0fef13a6bef01f61a
+            subnet-0a676289b4a27a7fa
+
+          override-container: alpine
+          override-container-command: |
+            /bin/sh
+            -c
+            exit 1
+
+      ##########################
+      # Check expected failure #
+      ##########################
+      - name: Check previous for Failure
+        if: steps.expect-fail.outcome == 'success'
+        run: |
+          echo "Expected a failure. Outcome: ${{ steps.expect-fail.outcome }}"
+          exit 1
+
+      ######################
+      # Test Action itself #
+      ######################
+      - name: Test Fire and Forget
+        uses: ./
+        with:
+          # Pre created
+          cluster: github-gha
+          task-definition: arn:aws:ecs:${{ vars.AWS_TESTING_REGION }}:${{ vars.AWS_TESTING_ACCOUNT_ID }}:task-definition/github-gha-alpine
+
+          assign-public-ip: 'ENABLED'
+          security-group-ids: |
+            sg-09a0ccb78d5be2a25
+          subnet-ids: |
+            subnet-08bbfd6c53b0c1049
+            subnet-0fef13a6bef01f61a
+            subnet-0a676289b4a27a7fa
+
+          task-wait-until-stopped: false
+          override-container: alpine
+          override-container-command: |
+            /bin/sh
+            -c
+            x=0; while [ $x -le 10 ]; do echo "Sleeping... $x" && x=$(( $x + 1 )) && sleep 10; done

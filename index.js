@@ -105,12 +105,16 @@ const main = async () => {
         core.setOutput('task-id', taskId);
         core.info(`Starting Task with ARN: ${taskArn}\n`);
 
-        // Wait for task to be in running state
-        core.debug(`Waiting for task to be in running state.`)
-        await waitUntilTasksRunning({
-            client: ecs,
-            maxWaitTime: taskStartMaxWaitTime,
-        }, {cluster, tasks: [taskArn]});
+        try {
+            core.debug(`Waiting for task to be in running state. Waiting for ${taskStartMaxWaitTime} seconds.`);
+            await waitUntilTasksRunning({
+                client: ecs,
+                maxWaitTime: taskStartMaxWaitTime,
+            }, {cluster, tasks: [taskArn]});
+        } catch (error) {
+            core.setFailed(`Task did not start successfully. Error: ${error.name}. State: ${error.state}.`);
+            return;
+        }
 
         // If taskWaitUntilStopped is false, we can bail out here because we can not tail logs or have any
         // information on the exitCodes or status of the task
@@ -172,15 +176,18 @@ const main = async () => {
             }
         }
 
-        // Wait for Task to finish
-        core.debug(`Waiting for task to finish.`);
-        await waitUntilTasksStopped({
-            client: ecs,
-            maxWaitTime: taskStoppedMaxWaitTime,
-        }, {
-            cluster,
-            tasks: [taskArn],
-        });
+        try {
+            core.debug(`Waiting for task to finish. Waiting for ${taskStoppedMaxWaitTime} seconds.`);
+            await waitUntilTasksStopped({
+                client: ecs,
+                maxWaitTime: taskStoppedMaxWaitTime,
+            }, {
+                cluster,
+                tasks: [taskArn],
+            });
+        } catch (error) {
+            core.setFailed(`Task did not stop successfully. Error: ${error.name}. State: ${error.state}.`);
+        }
 
         // Close LogStream and store output
         if (logFilterStream !== null) {
