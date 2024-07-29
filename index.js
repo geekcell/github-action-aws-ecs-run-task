@@ -29,6 +29,7 @@ const main = async () => {
         const taskWaitUntilStopped = core.getBooleanInput('task-wait-until-stopped', {required: false});
         const taskStartMaxWaitTime = parseInt(core.getInput('task-start-max-wait-time', {required: false}));
         const taskStoppedMaxWaitTime = parseInt(core.getInput('task-stopped-max-wait-time', {required: false}));
+        const taskCheckStateDelay = parseInt(core.getInput('task-check-state-delay', {required: false}));
 
         // Build Task parameters
         const taskRequestParams = {
@@ -110,6 +111,8 @@ const main = async () => {
             await waitUntilTasksRunning({
                 client: ecs,
                 maxWaitTime: taskStartMaxWaitTime,
+                maxDelay: taskCheckStateDelay,
+                minDelay: taskCheckStateDelay,
             }, {cluster, tasks: [taskArn]});
         } catch (error) {
             core.setFailed(`Task did not start successfully. Error: ${error.name}. State: ${error.state}.`);
@@ -181,6 +184,8 @@ const main = async () => {
             await waitUntilTasksStopped({
                 client: ecs,
                 maxWaitTime: taskStoppedMaxWaitTime,
+                maxDelay: taskCheckStateDelay,
+                minDelay: taskCheckStateDelay,
             }, {
                 cluster,
                 tasks: [taskArn],

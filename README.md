@@ -104,6 +104,7 @@ Will pass the following command to the container on the AWS ECS Fargate task:
 | task-wait-until-stopped | Whether to wait for the task to stop before finishing the action. If set to false, the action will finish immediately after the task reaches the `RUNNING` state (fire and forget). | `false` | true |
 | task-start-max-wait-time | How long to wait for the task to start (i.e. reach the `RUNNING` state) in seconds. If the task does not start within this time, the pipeline will fail. | `false` | 120 |
 | task-stopped-max-wait-time | How long to wait for the task to stop (i.e. reach the `STOPPED` state) in seconds. The task will not be canceled after this time, the pipeline will just be marked as failed. | `false` | 300 |
+| task-check-state-delay | How long to wait between each AWS API call to check the current state of the task in seconds. This is useful to avoid running into AWS rate limits. **However**, setting this too high might cause the Action to miss the time-window your task is in the "RUNNING" state (if you task is very short lived) and can cause the action to fail. | `false` | 6 |
 <!-- action-docs-inputs -->
 
 <!-- action-docs-outputs -->
