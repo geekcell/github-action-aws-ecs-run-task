@@ -81,6 +81,14 @@ inputs:
     required: false
     default: 300
 
+  task-check-state-delay:
+    description: >-
+      How long to wait between each AWS API call to check the current state of the task in seconds. This is useful to
+      avoid running into AWS rate limits. **However**, setting this too high might cause the Action to miss the time-window
+      your task is in the "RUNNING" state (if you task is very short lived) and can cause the action to fail.
+    required: false
+    default: 6
+
 outputs:
   task-arn:
     description: 'The full ARN for the task that was ran.'
