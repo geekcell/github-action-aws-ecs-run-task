@@ -1,5 +1,9 @@
 [![Geek Cell GmbH](https://raw.githubusercontent.com/geekcell/.github/main/geekcell-github-banner.png)](https://www.geekcell.io/)
 
+[![Linter](https://github.com/geekcell/github-action-aws-ecs-run-task/actions/workflows/linter.yaml/badge.svg)](https://github.com/geekcell/github-action-aws-ecs-run-task/actions/workflows/linter.yaml)
+[![Test](https://github.com/geekcell/github-action-aws-ecs-run-task/actions/workflows/test.yaml/badge.svg)](https://github.com/geekcell/github-action-aws-ecs-run-task/actions/workflows/test.yaml)
+[![Check dist/](https://github.com/geekcell/github-action-aws-ecs-run-task/actions/workflows/check-dist.yaml/badge.svg)](https://github.com/geekcell/github-action-aws-ecs-run-task/actions/workflows/check-dist.yaml)
+
 <!-- action-docs-description -->
 ## Description
 
