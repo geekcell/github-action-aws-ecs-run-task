@@ -130,6 +130,9 @@ const main = async () => {
             return;
         }
 
+        // Get CWLogsClient
+        let CWLogClient = new CloudWatchLogsClient();
+
         // Only create logFilterStream if tailLogs is enabled, and we wait for the task to stop in the pipeline
         if (tailLogs) {
             core.debug(`Logging enabled. Getting logConfiguration from TaskDefinition.`)
@@ -164,7 +167,6 @@ const main = async () => {
 
                         // Start Live Tail
                         try {
-                            const CWLogClient = new CloudWatchLogsClient();
                             const response = await CWLogClient.send(new StartLiveTailCommand({
                                 logGroupIdentifiers: [logGroupIdentifier],
                                 logStreamNames: [logStreamName]
@@ -197,6 +199,7 @@ const main = async () => {
         }
 
         // Close LogStream and store output
+        CWLogClient.destroy();
         core.setOutput('log-output', logOutput);
 
         // Describe Task to get Exit Code and Exceptions
@@ -236,7 +239,15 @@ async function handleCWResponseAsync(response) {
             core.error("CWLiveTailSession error: Unknown event type.");
         }
     } catch (err) {
-        core.error(err.message)
+        // If we close the connection, we will get an error with message 'aborted' which we can ignore as it will
+        // just show as an error in the logs.
+        if (err.message === 'aborted') {
+            core.debug("CWLiveTailSession aborted.");
+
+            return;
+        }
+
+        core.error(err.name + ": " + err.message);
     }
 }
 
