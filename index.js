@@ -1,9 +1,13 @@
 const core = require('@actions/core');
-const aws = require('aws-sdk');
 
+const {STSClient, GetCallerIdentityCommand} = require("@aws-sdk/client-sts")
+const {CloudWatchLogsClient, StartLiveTailCommand} = require("@aws-sdk/client-cloudwatch-logs")
 const {ECS, waitUntilTasksRunning, waitUntilTasksStopped} = require('@aws-sdk/client-ecs');
 
-const smoketail = require('smoketail')
+const {loadConfig} = require("@aws-sdk/node-config-provider");
+const {NODE_REGION_CONFIG_FILE_OPTIONS, NODE_REGION_CONFIG_OPTIONS} = require("@aws-sdk/config-resolver");
+
+let logOutput = '';
 
 const main = async () => {
     try {
@@ -126,9 +130,8 @@ const main = async () => {
             return;
         }
 
-        // Get logging configuration
-        let logFilterStream = null;
-        let logOutput = '';
+        // Get CWLogsClient
+        let CWLogClient = new CloudWatchLogsClient();
 
         // Only create logFilterStream if tailLogs is enabled, and we wait for the task to stop in the pipeline
         if (tailLogs) {
@@ -138,7 +141,7 @@ const main = async () => {
 
             // Iterate all containers in TaskDef and search for given container with awslogs driver
             if (taskDef && taskDef.containerDefinitions) {
-                taskDef.containerDefinitions.some((container) => {
+                taskDef.containerDefinitions.some(async (container) => {
                     core.debug(`Looking for logConfiguration in container '${container.name}'.`);
 
                     // If overrideContainer is passed, we want the logConfiguration for that container
@@ -146,32 +149,33 @@ const main = async () => {
                         return false;
                     }
 
-                    // Create a CWLogFilterStream if logOptions are found
+                    // Create a StartLiveTailCommand if logOptions are found
                     if (container.logConfiguration && container.logConfiguration.logDriver === 'awslogs') {
+                        core.debug(`Found matching container with 'awslogs' logDriver. Creating LogStreamARN for '${container.name}'.`);
+
+                        // Build ARN of the LogGroup required for the CloudWatchLogsClient
+                        const stsClient = new STSClient();
+                        const stsResponse = await stsClient.send(new GetCallerIdentityCommand({}));
+
+                        const accountId = stsResponse.Account;
+                        const logRegion = container.logConfiguration.options['awslogs-region']
+                        const logGroup = container.logConfiguration.options['awslogs-group']
+                        const logGroupIdentifier = `arn:aws:logs:${logRegion}:${accountId}:log-group:${logGroup}`;
+                        core.debug(`LogGroupARN for '${container.name}' is: '${logGroupIdentifier}'.`);
+
                         const logStreamName = [container.logConfiguration.options['awslogs-stream-prefix'], container.name, taskId].join('/')
-                        core.debug(`Found matching container with 'awslogs' logDriver. Creating LogStream for '${logStreamName}'`);
 
-                        logFilterStream = new smoketail.CWLogFilterEventStream(
-                            {
-                                logGroupName: container.logConfiguration.options['awslogs-group'],
-                                logStreamNames: [logStreamName],
-                                startTime: Math.floor(+new Date() / 1000),
-                                followInterval: 3000,
-                                follow: true
-                            },
-                            {region: container.logConfiguration.options['awslogs-region']}
-                        );
+                        // Start Live Tail
+                        try {
+                            const response = await CWLogClient.send(new StartLiveTailCommand({
+                                logGroupIdentifiers: [logGroupIdentifier],
+                                logStreamNames: [logStreamName]
+                            }));
 
-                        logFilterStream.on('error', function (error) {
-                            core.error(error.message);
-                            core.debug(error.stack);
-                        });
-
-                        logFilterStream.on('data', function (eventObject) {
-                            const logLine = `${new Date(eventObject.timestamp).toISOString()}: ${eventObject.message}`
-                            core.info(logLine);
-                            logOutput += logLine + '\n';
-                        });
+                            await handleCWResponseAsync(response);
+                        } catch (err) {
+                            core.error(err.message);
+                        }
 
                         return true;
                     }
@@ -195,13 +199,8 @@ const main = async () => {
         }
 
         // Close LogStream and store output
-        if (logFilterStream !== null) {
-            core.debug(`Closing logStream.`);
-            logFilterStream.close();
-
-            // Export log-output
-            core.setOutput('log-output', logOutput);
-        }
+        CWLogClient.destroy();
+        core.setOutput('log-output', logOutput);
 
         // Describe Task to get Exit Code and Exceptions
         core.debug(`Process exit code and exception.`);
@@ -209,7 +208,9 @@ const main = async () => {
 
         // Get exitCode
         if (task.tasks[0].containers[0].exitCode !== 0) {
-            core.info(`Task failed, see details on Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=${aws.config.region}#/clusters/${cluster}/tasks/${taskId}/details`);
+            const currentRegion = await loadConfig(NODE_REGION_CONFIG_OPTIONS, NODE_REGION_CONFIG_FILE_OPTIONS)();
+
+            core.info(`Task failed, see details on Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=${currentRegion}#/clusters/${cluster}/tasks/${taskId}/details`);
             core.setFailed(task.tasks[0].stoppedReason)
         }
     } catch (error) {
@@ -217,5 +218,29 @@ const main = async () => {
         core.debug(error.stack);
     }
 };
+
+async function handleCWResponseAsync(response) {
+    try {
+        for await (const event of response.responseStream) {
+            if (event.sessionStart !== undefined) {
+                core.debug("CWLiveTailSession started: " + JSON.stringify(event.sessionStart));
+                continue;
+            }
+
+            if (event.sessionUpdate !== undefined) {
+                for (const logEvent of event.sessionUpdate.sessionResults) {
+                    const logLine = `${new Date(logEvent.timestamp).toISOString()}: ${logEvent.message}`
+                    logOutput += logLine + '\n';
+                    core.info(logLine);
+                }
+                continue;
+            }
+
+            core.error("CWLiveTailSession error: Unknown event type.");
+        }
+    } catch (err) {
+        core.error(err.message)
+    }
+}
 
 main();
