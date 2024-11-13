@@ -56480,7 +56480,7 @@ const main = async () => {
         // Inputs: Waiters
         const taskWaitUntilStopped = core.getBooleanInput('task-wait-until-stopped', {required: false});
         const taskStartMaxWaitTime = parseInt(core.getInput('task-start-max-wait-time', {required: false}));
-        const taskStoppedMaxWaitTime = parseInt(core.getInput('task-stopped-max-wait-time', {required: false}));
+        const taskStopMaxWaitTime = parseInt(core.getInput('task-stop-max-wait-time', {required: false}));
         const taskCheckStateDelay = parseInt(core.getInput('task-check-state-delay', {required: false}));
 
         // Build Task parameters
@@ -56558,31 +56558,11 @@ const main = async () => {
         core.setOutput('task-id', taskId);
         core.info(`Starting Task with ARN: ${taskArn}\n`);
 
-        try {
-            core.debug(`Waiting for task to be in running state. Waiting for ${taskStartMaxWaitTime} seconds.`);
-            await waitUntilTasksRunning({
-                client: ecs,
-                maxWaitTime: taskStartMaxWaitTime,
-                maxDelay: taskCheckStateDelay,
-                minDelay: taskCheckStateDelay,
-            }, {cluster, tasks: [taskArn]});
-        } catch (error) {
-            core.setFailed(`Task did not start successfully. Error: ${error.name}. State: ${error.state}.`);
-            return;
-        }
-
-        // If taskWaitUntilStopped is false, we can bail out here because we can not tail logs or have any
-        // information on the exitCodes or status of the task
-        if (!taskWaitUntilStopped) {
-            core.info(`Task is running. Exiting without waiting for task to stop.`);
-            return;
-        }
-
-        // Get CWLogsClient
+        // Create CWLogsClient
         let CWLogClient = new CloudWatchLogsClient();
 
-        // Only create logFilterStream if tailLogs is enabled, and we wait for the task to stop in the pipeline
-        if (tailLogs) {
+        // Only create StartLiveTailCommand if tailLogs is enabled, and we wait for the task to stop in the pipeline
+        if (tailLogs && taskWaitUntilStopped) {
             core.debug(`Logging enabled. Getting logConfiguration from TaskDefinition.`)
             let taskDef = await ecs.describeTaskDefinition({taskDefinition: taskDefinition});
             taskDef = taskDef.taskDefinition
@@ -56611,13 +56591,15 @@ const main = async () => {
                         const logGroupIdentifier = `arn:aws:logs:${logRegion}:${accountId}:log-group:${logGroup}`;
                         core.debug(`LogGroupARN for '${container.name}' is: '${logGroupIdentifier}'.`);
 
+                        // We will use the full logStreamName as a prefix filter. This way the SDK will not crash
+                        // if the logStream does not exist yet.
                         const logStreamName = [container.logConfiguration.options['awslogs-stream-prefix'], container.name, taskId].join('/')
 
                         // Start Live Tail
                         try {
                             const response = await CWLogClient.send(new StartLiveTailCommand({
                                 logGroupIdentifiers: [logGroupIdentifier],
-                                logStreamNames: [logStreamName]
+                                logStreamNamePrefixes: [logStreamName]
                             }));
 
                             await handleCWResponseAsync(response);
@@ -56632,10 +56614,30 @@ const main = async () => {
         }
 
         try {
-            core.debug(`Waiting for task to finish. Waiting for ${taskStoppedMaxWaitTime} seconds.`);
+            core.debug(`Waiting for task to be in running state. Waiting for ${taskStartMaxWaitTime} seconds.`);
+            await waitUntilTasksRunning({
+                client: ecs,
+                maxWaitTime: taskStartMaxWaitTime,
+                maxDelay: taskCheckStateDelay,
+                minDelay: taskCheckStateDelay,
+            }, {cluster, tasks: [taskArn]});
+        } catch (error) {
+            core.setFailed(`Task did not start successfully. Error: ${error.message}.`);
+            process.exit(1);
+        }
+
+        // If taskWaitUntilStopped is false, we can bail out here because we can not tail logs or have any
+        // information on the exitCodes or status of the task
+        if (!taskWaitUntilStopped) {
+            core.info(`Task is running. Exiting without waiting for task to stop.`);
+            process.exit(0);
+        }
+
+        try {
+            core.debug(`Waiting for task to finish. Waiting for ${taskStopMaxWaitTime} seconds.`);
             await waitUntilTasksStopped({
                 client: ecs,
-                maxWaitTime: taskStoppedMaxWaitTime,
+                maxWaitTime: taskStopMaxWaitTime,
                 maxDelay: taskCheckStateDelay,
                 minDelay: taskCheckStateDelay,
             }, {
@@ -56643,7 +56645,7 @@ const main = async () => {
                 tasks: [taskArn],
             });
         } catch (error) {
-            core.setFailed(`Task did not stop successfully. Error: ${error.name}. State: ${error.state}.`);
+            core.setFailed(`Task did not stop successfully. Error: ${error.message}.`);
         }
 
         // Close LogStream and store output
@@ -56688,10 +56690,9 @@ async function handleCWResponseAsync(response) {
         }
     } catch (err) {
         // If we close the connection, we will get an error with message 'aborted' which we can ignore as it will
-        // just show as an error in the logs.
+        // just show as an error in the GHA logs.
         if (err.message === 'aborted') {
             core.debug("CWLiveTailSession aborted.");
-
             return;
         }
 
