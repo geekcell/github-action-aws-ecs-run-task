@@ -1,9 +1,13 @@
 const core = require('@actions/core');
-const aws = require('aws-sdk');
 
+const {STSClient, GetCallerIdentityCommand} = require("@aws-sdk/client-sts")
+const {CloudWatchLogsClient, StartLiveTailCommand} = require("@aws-sdk/client-cloudwatch-logs")
 const {ECS, waitUntilTasksRunning, waitUntilTasksStopped} = require('@aws-sdk/client-ecs');
 
-const smoketail = require('smoketail')
+const {loadConfig} = require("@aws-sdk/node-config-provider");
+const {NODE_REGION_CONFIG_FILE_OPTIONS, NODE_REGION_CONFIG_OPTIONS} = require("@aws-sdk/config-resolver");
+
+let logOutput = '';
 
 const main = async () => {
     try {
@@ -28,7 +32,7 @@ const main = async () => {
         // Inputs: Waiters
         const taskWaitUntilStopped = core.getBooleanInput('task-wait-until-stopped', {required: false});
         const taskStartMaxWaitTime = parseInt(core.getInput('task-start-max-wait-time', {required: false}));
-        const taskStoppedMaxWaitTime = parseInt(core.getInput('task-stopped-max-wait-time', {required: false}));
+        const taskStopMaxWaitTime = parseInt(core.getInput('task-stop-max-wait-time', {required: false}));
         const taskCheckStateDelay = parseInt(core.getInput('task-check-state-delay', {required: false}));
 
         // Build Task parameters
@@ -106,6 +110,61 @@ const main = async () => {
         core.setOutput('task-id', taskId);
         core.info(`Starting Task with ARN: ${taskArn}\n`);
 
+        // Create CWLogsClient
+        let CWLogClient = new CloudWatchLogsClient();
+
+        // Only create StartLiveTailCommand if tailLogs is enabled, and we wait for the task to stop in the pipeline
+        if (tailLogs && taskWaitUntilStopped) {
+            core.debug(`Logging enabled. Getting logConfiguration from TaskDefinition.`)
+            let taskDef = await ecs.describeTaskDefinition({taskDefinition: taskDefinition});
+            taskDef = taskDef.taskDefinition
+
+            // Iterate all containers in TaskDef and search for given container with awslogs driver
+            if (taskDef && taskDef.containerDefinitions) {
+                taskDef.containerDefinitions.some(async (container) => {
+                    core.debug(`Looking for logConfiguration in container '${container.name}'.`);
+
+                    // If overrideContainer is passed, we want the logConfiguration for that container
+                    if (overrideContainer && container.name !== overrideContainer) {
+                        return false;
+                    }
+
+                    // Create a StartLiveTailCommand if logOptions are found
+                    if (container.logConfiguration && container.logConfiguration.logDriver === 'awslogs') {
+                        core.debug(`Found matching container with 'awslogs' logDriver. Creating LogStreamARN for '${container.name}'.`);
+
+                        // Build ARN of the LogGroup required for the CloudWatchLogsClient
+                        const stsClient = new STSClient();
+                        const stsResponse = await stsClient.send(new GetCallerIdentityCommand({}));
+
+                        const accountId = stsResponse.Account;
+                        const logRegion = container.logConfiguration.options['awslogs-region']
+                        const logGroup = container.logConfiguration.options['awslogs-group']
+                        const logGroupIdentifier = `arn:aws:logs:${logRegion}:${accountId}:log-group:${logGroup}`;
+                        core.debug(`LogGroupARN for '${container.name}' is: '${logGroupIdentifier}'.`);
+
+                        // We will use the full logStreamName as a prefix filter. This way the SDK will not crash
+                        // if the logStream does not exist yet.
+                        const logStreamName = [container.logConfiguration.options['awslogs-stream-prefix'], container.name, taskId].join('/')
+
+                        // Start Live Tail
+                        try {
+                            const response = await CWLogClient.send(new StartLiveTailCommand({
+                                logGroupIdentifiers: [logGroupIdentifier],
+                                logStreamNamePrefixes: [logStreamName]
+                            }));
+
+                            await handleCWResponseAsync(response);
+                        } catch (err) {
+                            core.error(err.message);
+                        }
+
+                        return true;
+                    }
+                });
+            }
+        }
+
         try {
             core.debug(`Waiting for task to be in running state. Waiting for ${taskStartMaxWaitTime} seconds.`);
             await waitUntilTasksRunning({
@@ -115,75 +174,22 @@ const main = async () => {
                 minDelay: taskCheckStateDelay,
             }, {cluster, tasks: [taskArn]});
         } catch (error) {
-            core.setFailed(`Task did not start successfully. Error: ${error.name}. State: ${error.state}.`);
-            return;
+            core.setFailed(`Task did not start successfully. Error: ${error.message}.`);
+            process.exit(1);
         }
 
         // If taskWaitUntilStopped is false, we can bail out here because we can not tail logs or have any
         // information on the exitCodes or status of the task
         if (!taskWaitUntilStopped) {
             core.info(`Task is running. Exiting without waiting for task to stop.`);
-            return;
-        }
-
-        // Get logging configuration
-        let logFilterStream = null;
-        let logOutput = '';
-
-        // Only create logFilterStream if tailLogs is enabled, and we wait for the task to stop in the pipeline
-        if (tailLogs) {
-            core.debug(`Logging enabled. Getting logConfiguration from TaskDefinition.`)
-            let taskDef = await ecs.describeTaskDefinition({taskDefinition: taskDefinition});
-            taskDef = taskDef.taskDefinition
-
-            // Iterate all containers in TaskDef and search for given container with awslogs driver
-            if (taskDef && taskDef.containerDefinitions) {
-                taskDef.containerDefinitions.some((container) => {
-                    core.debug(`Looking for logConfiguration in container '${container.name}'.`);
-
-                    // If overrideContainer is passed, we want the logConfiguration for that container
-                    if (overrideContainer && container.name !== overrideContainer) {
-                        return false;
-                    }
-
-                    // Create a CWLogFilterStream if logOptions are found
-                    if (container.logConfiguration && container.logConfiguration.logDriver === 'awslogs') {
-                        const logStreamName = [container.logConfiguration.options['awslogs-stream-prefix'], container.name, taskId].join('/')
-                        core.debug(`Found matching container with 'awslogs' logDriver. Creating LogStream for '${logStreamName}'`);
-
-                        logFilterStream = new smoketail.CWLogFilterEventStream(
-                            {
-                                logGroupName: container.logConfiguration.options['awslogs-group'],
-                                logStreamNames: [logStreamName],
-                                startTime: Math.floor(+new Date() / 1000),
-                                followInterval: 3000,
-                                follow: true
-                            },
-                            {region: container.logConfiguration.options['awslogs-region']}
-                        );
-
-                        logFilterStream.on('error', function (error) {
-                            core.error(error.message);
-                            core.debug(error.stack);
-                        });
-
-                        logFilterStream.on('data', function (eventObject) {
-                            const logLine = `${new Date(eventObject.timestamp).toISOString()}: ${eventObject.message}`
-                            core.info(logLine);
-                            logOutput += logLine + '\n';
-                        });
-
-                        return true;
-                    }
-                });
-            }
+            process.exit(0);
         }
 
         try {
-            core.debug(`Waiting for task to finish. Waiting for ${taskStoppedMaxWaitTime} seconds.`);
+            core.debug(`Waiting for task to finish. Waiting for ${taskStopMaxWaitTime} seconds.`);
             await waitUntilTasksStopped({
                 client: ecs,
-                maxWaitTime: taskStoppedMaxWaitTime,
+                maxWaitTime: taskStopMaxWaitTime,
                 maxDelay: taskCheckStateDelay,
                 minDelay: taskCheckStateDelay,
             }, {
@@ -191,17 +197,12 @@ const main = async () => {
                 tasks: [taskArn],
             });
         } catch (error) {
-            core.setFailed(`Task did not stop successfully. Error: ${error.name}. State: ${error.state}.`);
+            core.setFailed(`Task did not stop successfully. Error: ${error.message}.`);
         }
 
         // Close LogStream and store output
-        if (logFilterStream !== null) {
-            core.debug(`Closing logStream.`);
-            logFilterStream.close();
-
-            // Export log-output
-            core.setOutput('log-output', logOutput);
-        }
+        CWLogClient.destroy();
+        core.setOutput('log-output', logOutput);
 
         // Describe Task to get Exit Code and Exceptions
         core.debug(`Process exit code and exception.`);
@@ -209,7 +210,9 @@ const main = async () => {
 
         // Get exitCode
         if (task.tasks[0].containers[0].exitCode !== 0) {
-            core.info(`Task failed, see details on Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=${aws.config.region}#/clusters/${cluster}/tasks/${taskId}/details`);
+            const currentRegion = await loadConfig(NODE_REGION_CONFIG_OPTIONS, NODE_REGION_CONFIG_FILE_OPTIONS)();
+
+            core.info(`Task failed, see details on Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=${currentRegion}#/clusters/${cluster}/tasks/${taskId}/details`);
             core.setFailed(task.tasks[0].stoppedReason)
         }
     } catch (error) {
@@ -217,5 +220,36 @@ const main = async () => {
         core.debug(error.stack);
     }
 };
+
+async function handleCWResponseAsync(response) {
+    try {
+        for await (const event of response.responseStream) {
+            if (event.sessionStart !== undefined) {
+                core.debug("CWLiveTailSession started: " + JSON.stringify(event.sessionStart));
+                continue;
+            }
+
+            if (event.sessionUpdate !== undefined) {
+                for (const logEvent of event.sessionUpdate.sessionResults) {
+                    const logLine = `${new Date(logEvent.timestamp).toISOString()}: ${logEvent.message}`
+                    logOutput += logLine + '\n';
+                    core.info(logLine);
+                }
+                continue;
+            }
+
+            core.error("CWLiveTailSession error: Unknown event type.");
+        }
+    } catch (err) {
+        // If we close the connection, we will get an error with message 'aborted' which we can ignore as it will
+        // just show as an error in the GHA logs.
+        if (err.message === 'aborted') {
+            core.debug("CWLiveTailSession aborted.");
+            return;
+        }
+
+        core.error(err.name + ": " + err.message);
+    }
+}
 
 main();
