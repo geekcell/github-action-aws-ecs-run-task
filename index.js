@@ -166,13 +166,14 @@ const main = async () => {
         }
 
         try {
-            core.debug(`Waiting for task to be in running state. Waiting for ${taskStartMaxWaitTime} seconds.`);
-            await waitUntilTasksRunning({
+            core.debug(`Waiting for task to be in running state. Waiting for ${taskStartMaxWaitTime} seconds. (taskCheckStateDelay = ${taskCheckStateDelay}, taskArn=${taskArn})`);
+            const waitECSTaskResult = await waitUntilTasksRunning({
                 client: ecs,
                 maxWaitTime: taskStartMaxWaitTime,
                 maxDelay: taskCheckStateDelay,
                 minDelay: taskCheckStateDelay,
             }, {cluster, tasks: [taskArn]});
+            core.debug(`waitECSTaskResult: ${waitECSTaskResult.state}`);
         } catch (error) {
             core.setFailed(`Task did not start successfully. Error: ${error.message}.`);
             process.exit(1);
