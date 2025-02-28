@@ -1,5 +1,5 @@
 {
-  "name": "github-action-aws-ecs-run-task",
+  "name": "@simllll/github-action-aws-ecs-run-task",
   "version": "1.4.10",
   "description": "Run an AWS ECS Fargate task.",
   "main": "index.js",
