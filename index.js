@@ -173,7 +173,7 @@ const main = async () => {
                 maxDelay: taskCheckStateDelay,
                 minDelay: taskCheckStateDelay,
             }, {cluster, tasks: [taskArn]});
-            core.debug(`waitECSTaskResult: ${waitECSTaskResult.state}`);
+            core.debug(`waitECSTaskResult: ${waitECSTaskResult.state} / ${JSON.stringify(waitECSTaskResult)}`);
         } catch (error) {
             core.setFailed(`Task did not start successfully. Error: ${error.message}.`);
             process.exit(1);
