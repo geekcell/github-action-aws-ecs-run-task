@@ -23,7 +23,7 @@ This action is great for executing migrations or other pre/post deployment steps
 ``` yaml
 - name: Execute migrations and seeders
   id: run-task
-  uses: geekcell/github-action-aws-ecs-run-task@v3.0.0
+  uses: geekcell/github-action-aws-ecs-run-task@v5
   with:
     cluster: application-cluster
     task-definition: application-task-def
@@ -56,7 +56,7 @@ This action is great for executing migrations or other pre/post deployment steps
 ``` yaml
 - name: Run migration container
   id: run-task
-  uses: geekcell/github-action-aws-ecs-run-task@v3.0.0
+  uses: geekcell/github-action-aws-ecs-run-task@vv5
   with:
     cluster: application-cluster
     task-definition: application-task-def
