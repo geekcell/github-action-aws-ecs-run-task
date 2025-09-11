@@ -49,7 +49,7 @@ This action is great for executing migrations or other pre/post deployment steps
 
     task-wait-until-stopped: true
     task-start-max-wait-time: 120
-    task-stopped-max-wait-time: 300
+    task-stop-max-wait-time: 300
 ```
 
 #### Minimal example
