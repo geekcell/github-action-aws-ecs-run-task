@@ -36,6 +36,14 @@ inputs:
       Which ECS cluster to start the task in.
     required: false
 
+  enable-execute-command:
+    description: >-
+      Whether to enable the execute command feature for the task. This requires
+      that the ECS cluster has execute command enabled and that the task role
+      has the necessary permissions.
+    required: false
+    default: 'false'
+
   override-container:
     description: >-
       Will use `containerOverrides` to run a custom command on the container. If provided, `override-container-command`
