@@ -56487,6 +56487,7 @@ const main = async () => {
         const securityGroups = core.getMultilineInput('security-group-ids', {required: true});
 
         // Inputs: Optional
+        const enableExecuteCommand = core.getBooleanInput('enable-execute-command', {required: false});
         const tailLogs = core.getBooleanInput('tail-logs', {required: false});
         const assignPublicIp = core.getInput('assign-public-ip', {required: false});
         const overrideContainer = core.getInput('override-container', {required: false});
@@ -56505,6 +56506,7 @@ const main = async () => {
             cluster,
             taskDefinition,
             launchType: 'FARGATE',
+            enableExecuteCommand: enableExecuteCommand,
             networkConfiguration: {
                 awsvpcConfiguration: {
                     subnets,
