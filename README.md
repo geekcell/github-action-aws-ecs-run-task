@@ -124,5 +124,5 @@ Will pass the following command to the container on the AWS ECS Fargate task:
 <!-- action-docs-runs -->
 ## Runs
 
-This action is a `node20` action.
+This action is a `node24` action.
 <!-- action-docs-runs -->
