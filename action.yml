@@ -98,5 +98,5 @@ outputs:
     description: 'The log output of the task that was ran, if `tail-logs` and `task-wait-until-stopped` are set to true.'
 
 runs:
-  using: 'node20'
+  using: 'node24'
   main: 'dist/index.js'
