@@ -56672,8 +56672,13 @@ const main = async () => {
         core.debug(`Process exit code and exception.`);
         task = await ecs.describeTasks({cluster, tasks: [taskArn]});
 
+        let container = task.tasks[0].containers[0];
+        if (overrideContainer) {
+            container = task.tasks[0].containers.find((c) => c.name === overrideContainer);
+        }
+
         // Get exitCode
-        if (task.tasks[0].containers[0].exitCode !== 0) {
+        if (container.exitCode !== 0) {
             const currentRegion = await loadConfig(NODE_REGION_CONFIG_OPTIONS, NODE_REGION_CONFIG_FILE_OPTIONS)();
 
             core.info(`Task failed, see details on Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=${currentRegion}#/clusters/${cluster}/tasks/${taskId}/details`);
