@@ -3,6 +3,9 @@
   "version": "1.4.10",
   "description": "Run an AWS ECS Fargate task.",
   "main": "index.js",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "lint": "eslint **.js",
     "build": "ncc build index.js -o dist",

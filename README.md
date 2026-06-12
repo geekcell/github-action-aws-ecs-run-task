@@ -124,5 +124,7 @@ Will pass the following command to the container on the AWS ECS Fargate task:
 <!-- action-docs-runs -->
 ## Runs
 
-This action is a `node20` action.
+This action is a `node24` action.
+
+> Fork note: This fork tracks the GitHub-supported action runtime label (`node24`) in `runs.using`, which may differ from Node.js LTS naming conventions.
 <!-- action-docs-runs -->
