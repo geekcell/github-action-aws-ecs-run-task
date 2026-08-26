@@ -37,7 +37,7 @@ jobs:
           if_false: "${{ steps.bumpr.outputs.next_version }}"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3.8.1
+        uses: actions/setup-node@v3.9.1
         with:
           node-version-file: .nvmrc
           cache: npm
