@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Bump version
         if: "!startsWith(github.ref, 'refs/tags/')"
@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Post bumpr status comment
         uses: haya14busa/action-bumpr@v1
